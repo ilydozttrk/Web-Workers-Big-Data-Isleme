@@ -3,95 +3,104 @@ import Papa from 'papaparse'
 self.onmessage = (event) => {
   const { file } = event.data
 
-  self.postMessage({
-    type: 'progress',
-    progress: 10,
-  })
+  self.postMessage({ type: 'progress', progress: 0 })
+
+  let processedRows = 0
+  let estimatedTotal = 0
+  const rows = []
+
+  // Dosya boyutuna göre satır sayısı tahmini (ortalama ~50 byte/satır varsayımı)
+  estimatedTotal = Math.max(Math.round(file.size / 50), 1000)
 
   Papa.parse(file, {
     header: true,
     skipEmptyLines: true,
 
-    complete: (results) => {
-      const rows = results.data
+    step: (results) => {
+      processedRows++
+      rows.push(results.data)
 
+      // Her 1000 satırda bir progress gönder (spam önleme)
+      if (processedRows % 1000 !== 0) return
+
+      const progress = Math.min(
+        Math.floor((processedRows / estimatedTotal) * 100),
+        99
+      )
+
+      self.postMessage({ type: 'progress', progress })
+    },
+
+    complete: () => {
+      if (rows.length === 0) {
+        self.postMessage({
+          type: 'error',
+          message: 'Dataset is empty or could not be parsed.',
+        })
+        return
+      }
+
+      // Sayısal sütunları tespit et
       const numericColumns = []
+      const firstRow = rows[0]
 
-      if (rows.length > 0) {
-        const firstRow = rows[0]
-
-        for (const key in firstRow) {
-          const value = parseFloat(firstRow[key])
-
-          if (!isNaN(value)) {
-            numericColumns.push(key)
-          }
+      for (const key in firstRow) {
+        const value = parseFloat(firstRow[key])
+        if (!isNaN(value)) {
+          numericColumns.push(key)
         }
       }
 
+      if (numericColumns.length === 0) {
+        self.postMessage({
+          type: 'error',
+          message: 'No numeric columns found in dataset.',
+        })
+        return
+      }
+
+      // Her sayısal sütun için istatistik hesapla
       const stats = {}
 
       numericColumns.forEach((column) => {
         const values = rows
           .map((row) => parseFloat(row[column]))
-          .filter((value) => !isNaN(value))
+          .filter((v) => !isNaN(v))
 
-        const sum = values.reduce(
-          (acc, value) => acc + value,
-          0
-        )
+        if (values.length === 0) return
 
+        // Ortalama (Average)
+        const sum = values.reduce((acc, v) => acc + v, 0)
         const average = sum / values.length
 
-        const sortedValues = [...values].sort(
-          (a, b) => a - b
-        )
+        // Medyan (Median)
+        const sorted = [...values].sort((a, b) => a - b)
+        const midIndex = Math.floor(sorted.length / 2)
+        const median =
+          sorted.length % 2 === 0
+            ? (sorted[midIndex - 1] + sorted[midIndex]) / 2
+            : sorted[midIndex]
 
-        let median = 0
+        // Standart Sapma (Standard Deviation)
+        const variance = values.reduce(
+          (acc, v) => acc + Math.pow(v - average, 2), 0
+        ) / values.length
+        const standardDeviation = Math.sqrt(variance)
 
-        const middleIndex =
-          Math.floor(sortedValues.length / 2)
-
-        if (sortedValues.length % 2 === 0) {
-          median =
-            (
-              sortedValues[middleIndex - 1] +
-              sortedValues[middleIndex]
-            ) / 2
-        } else {
-          median = sortedValues[middleIndex]
-        }
-
-        const variance =
-          values.reduce((acc, value) => {
-            return (
-              acc +
-              Math.pow(value - average, 2)
-            )
-          }, 0) / values.length
-
-        const standardDeviation =
-          Math.sqrt(variance)
-
+        // Min / Max
         const min = Math.min(...values)
         const max = Math.max(...values)
 
         stats[column] = {
           average: average.toFixed(2),
           median: median.toFixed(2),
-
-          standardDeviation:
-            standardDeviation.toFixed(2),
-
+          standardDeviation: standardDeviation.toFixed(2),
           min,
           max,
         }
       })
 
-      self.postMessage({
-        type: 'progress',
-        progress: 100,
-      })
+      self.postMessage({ type: 'progress', progress: 100 })
 
       self.postMessage({
         type: 'complete',
@@ -104,7 +113,7 @@ self.onmessage = (event) => {
     error: (error) => {
       self.postMessage({
         type: 'error',
-        message: error.message,
+        message: error.message || 'CSV parsing failed.',
       })
     },
   })
