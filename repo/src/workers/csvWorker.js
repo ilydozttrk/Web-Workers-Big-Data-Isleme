@@ -87,9 +87,13 @@ self.onmessage = (event) => {
         ) / values.length
         const standardDeviation = Math.sqrt(variance)
 
-        // Min / Max
-        const min = Math.min(...values)
-        const max = Math.max(...values)
+        // Min / Max (Spread operatörü call stack'i taşırdığı için döngü kullanıldı)
+        let min = values[0]
+        let max = values[0]
+        for (let i = 1; i < values.length; i++) {
+          if (values[i] < min) min = values[i]
+          if (values[i] > max) max = values[i]
+        }
 
         stats[column] = {
           average: average.toFixed(2),
