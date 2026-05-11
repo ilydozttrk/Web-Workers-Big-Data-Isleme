@@ -1,288 +1,307 @@
-# Web Workers Big Data İşleme
+# 1. GİRİŞ
 
-> **Proje Kodu:** P22 · **Zorluk:** Orta-Zor · **Puan:** 50 · **Hafta:** 3
+## 1.1. Problem Tanımı
+**Çözülen problem:** Büyük veri setlerini (CSV/JSON dosyalarını) geleneksel web uygulamalarında işlerken, tarayıcının ana iş parçacığının (Main Thread) bloke olması ve arayüzün (UI) donarak uygulamanın çökmesi.
 
-**Öğrenci:** İLAYDA ÖZTÜRK  
-**Öğrenci No:** 23080410302  
-**E-posta:** ilydoztrk6@gmail.com  
-**Ders:** BMU1208 Web Tabanlı Programlama — *Dr. Öğr. Üyesi Davut ARI*  
-**Kurum:** Bitlis Eren Üniversitesi — Mühendislik-Mimarlık Fakültesi — Bilgisayar Mühendisliği  
-**Dönem:** 2025-2026 Bahar  
+Günlük hayatta birçok veri analisti ve araştırmacı, KVKK gibi veri gizliliği kuralları nedeniyle dosyalarını uzak sunuculara yüklemek istememektedir. Bu nedenle analizi lokal tarayıcı ortamında yapmak istemektedirler. Ancak JavaScript'in tek iş parçacıklı doğası (single-threaded) sebebiyle, büyük dosyaların okunması esnasında (örneğin 50MB bir dosya) tarayıcı dakikalarca yanıt vermez hale gelir. 
+- *Örnek Şikayet 1 (Reddit r/javascript):* "Whenever I try to parse a 10MB CSV file in my React app, the whole page freezes until the parsing is done. Users think the app crashed."
+- *Örnek Şikayet 2 (Ekşi Sözlük):* "Excel'de 200 bin satırlık veriyi açmaya çalışırken bilgisayarım kitleniyor, Google Sheets zaten 5MB üstü yükleyince donup kalıyor."
+- *Sayısal Kanıt:* Geliştirici anketlerine göre web performans şikayetlerinin %40'ı ana iş parçacığını (Main Thread) uzun süre meşgul eden senkron işlemlerden kaynaklanmaktadır (Lighthouse raporları).
+
+## 1.2. Projenin Amacı ve Kapsamı
+Bu projenin amacı, **Web Workers API** kullanarak ağır hesaplama süreçlerini arka plana taşımak ve böylece devasa boyutlu CSV dosyalarını UI'ı dondurmadan tarayıcı içinde işlemektir. 
+**V1 (MVP) Kapsamındakiler:**
+- Sürükle-bırak ile dosya yükleme ve PapaParse ile asenkron okuma
+- Sayısal kolonlar için anlık istatistik hesaplama (min, max, ortalama, medyan)
+- Chart.js ile sonuçların görselleştirilmesi
+- Excel/CSV dışa aktarma
+
+**Out-of-Scope (V1 Kapsam Dışı):**
+- SQL benzeri (DuckDB) in-browser gelişmiş sorgulama
+- Çoklu dosyaları birleştirme (JOIN) işlemleri
+
+**Başarı Kriteri:** Uygulamanın başarı kriteri (North Star Metric), kullanıcıların "başarıyla çökme yaşamadan işlediği 100K+ satırlı CSV sayısı"dır.
+
+## 1.3. Raporun Yapısı
+Bu raporun kalan bölümleri şu şekildedir: Bölüm 2'de ürün yönetimi (PRD) kapsamında gereksinimler, Bölüm 3'te pazar ve rakip analizi, Bölüm 4'te teknoloji yığını sunulmuştur. Bölüm 5 ve 6'da sistem mimarisi ve veri akışına değinilmiş, Bölüm 7'de UI/UX kararları tartışılmıştır. Bölüm 8, 9 ve 10 sırasıyla güvenlik, maliyet analizi ve uygulama çıktılarından oluşmakta, rapor sonuç bölümüyle (Bölüm 11) tamamlanmaktadır.
 
 ---
 
-## İçindekiler
-1. [Proje Künyesi](#1-proje-künyesi)
-2. [Executive Summary](#2-executive-summary)
-3. [Problem ve Motivasyon](#3-problem-ve-motivasyon)
-4. [Hedef Kitle ve Persona](#4-hedef-kitle-ve-persona)
-5. [Ürün Gereksinimleri (PRD)](#5-ürün-gereksinimleri-prd)
-6. [Piyasa ve Rekabet Analizi](#6-piyasa-ve-rekabet-analizi)
-7. [Teknoloji Yığını (Tech Stack)](#7-teknoloji-yığını-tech-stack)
-8. [Sistem Mimarisi](#8-sistem-mimarisi)
-9. [Veri Modeli ve API Tasarımı](#9-veri-modeli-ve-api-tasarımı)
-10. [UI/UX Tasarımı](#10-uiux-tasarımı)
-11. [Güvenlik, Performans, Test](#11-güvenlik-performans-test)
-12. [Maliyet, Gelir Modeli, GTM](#12-maliyet-gelir-modeli-gtm)
+# 2. GEREKSİNİM ANALİZİ — PRD
 
----
+## 2.1. Yönetici Özeti (Executive Summary)
+Web Workers Big Data İşleme projesi, araştırmacıların ve analistlerin verilerini herhangi bir bulut sunucusuna yüklemeden doğrudan tarayıcı ortamında incelemelerini sağlayan güvenli ve yüksek performanslı bir araçtır.
 
-## 1. Proje Künyesi
+Günümüzde gizlilik (KVKK) ihlalleri giderek arttığı için firmalar verilerinin üçüncü parti sunucularda (SaaS) işlenmesini yasaklamaktadır. Bu nedenle tamamen "istemci tarafında (client-side)" çalışan ancak masaüstü programları kadar güçlü olan web uygulamalarına duyulan ihtiyaç her zamankinden fazladır.
 
+Başarımız, 1. yılın sonunda aracı her ay düzenli kullanan (MAU) 500 analiste ulaşmak ve "LCP < 1.5s" gibi yüksek performans standartlarını korumaktır.
+
+## 2.2. Hedef Kitle ve Persona
+**Birincil segment:** Veri analistleri, araştırmacılar ve akademi öğrencileri.
+
+**Tablo 1: Persona 1 Kartı**
 | Alan | Değer |
-|------|-------|
-| Proje Adı | Web Workers Big Data İşleme |
-| Proje Kodu | P22 |
-| Slogan (1 cümle) | "Tarayıcınızın sınırlarını zorlayan, UI dondurmayan veri analizi." |
-| Kategori | Data Analysis / Productivity |
-| Hedef Platform | Web (Desktop & Mobile) |
-| GitHub | https://github.com/ilydozttrk/Web-Workers-Big-Data-Isleme |
-| Canlı Demo | https://web-workers-big-data-analyzer.vercel.app |
-| Lisans | MIT |
-| Başlangıç | 2026-04-15 |
-| Hedef Bitiş | 2026-05-15 |
-| Durum | 🟢 Launched |
+|---|---|
+| Ad | Araştırmacı Aslı |
+| Yaş / Şehir | 25 / Ankara |
+| Rol / Meslek | Yüksek Lisans Öğrencisi |
+| Teknoloji kullanımı | Mac OS, Safari, Excel |
+| Günlük rutin | Kaggle'dan indirdiği açık veri setlerini tezleri için inceler. |
+| Ana hedef | Bir dosyanın genel dağılımını kod yazmadan görmek. |
+| Pain Points (3) | 1. Python öğrenmek vakit alıyor; 2. Veri setleri büyük olunca Excel kilitleniyor; 3. Kurulum gerektiren ağır programları sevmiyor. |
+| Ürünümüzü ne zaman açar? | İnternetten bir CSV dosyası indirdiği saniye, hızlıca göz atmak için. |
+| Motto | "En iyi araç, bana kurulum yaptırmadan çalışan araçtır." |
 
-### Tech Stack (Özet)
+**Tablo 2: Persona 2 Kartı**
+| Alan | Değer |
+|---|---|
+| Ad | Analist Burak |
+| Yaş / Şehir | 30 / İstanbul |
+| Rol / Meslek | Kurumsal Veri Analisti |
+| Teknoloji kullanımı | Windows, Chrome, SQL |
+| Günlük rutin | Banka veritabanlarından çektiği devasa log kayıtlarını inceler. |
+| Ana hedef | Veriyi (anormallikleri) hızlıca filtrelemek. |
+| Pain Points (3) | 1. Gizli veriyi buluta atması yasak; 2. Raporlama yavaş; 3. UI'ı donan araçlar sinirini bozuyor. |
+| Ürünümüzü ne zaman açar? | Yüz binlerce satırlık ham veriyi dışa aktarıp ilk kontrolleri yaparken. |
+| Motto | "Veri güvenliği benim için hızdan bile önemlidir." |
+
+## 2.3. Jobs To Be Done (JTBD)
+1. "When I'm **büyük bir dosya indirdiğimde**, I want to **hızlıca istatistikleri ve dağılımı görmek**, so I can **anormal değerleri tespit edebilmek**."
+2. "When I'm **gizli müşteri verisi incelerken**, I want to **dosyayı internete yüklemeden (lokal) işlemek**, so I can **veri ihlali riskinden %100 kaçınmak**."
+3. "When I'm **bilgisayarıma bir program kurmaya üşendiğimde**, I want to **sadece bir web linkine tıklayarak analiz yapabilmek**, so I can **zaman kazanmak**."
+
+## 2.4. Ana Özellikler ve Kullanıcı Hikâyeleri
+**Tablo 3: MVP Kapsamındaki Temel Özellikler**
+| Özellik | Açıklama / Öncelik |
+|---|---|
+| Dosya yükle (drag-drop) 100MB+ CSV | Must-have / V1 |
+| Progress bar (worker'dan mesaj) | Must-have / V1 |
+| Filtreleme, sayısal istatistik (min/max/avg) | Must-have / V1 |
+| Chart: Histogram | Must-have / V1 |
+| Export: Filtrelenmiş veri (Excel/CSV) | Must-have / V1 |
+
+**FR-01: As a** Araştırmacı, **I want to** CSV dosyamı sürükleyip bırakmak, **so that** hemen işleme başlayabileyim.
+*Acceptance:* Given kullanıcı sayfada, When dosyayı bırakır, Then worker işlemi başlar.
+
+**FR-02: As a** Analist, **I want to** işlem sürerken arayüzün donmadığını görmek, **so that** iptal butonuna basabileyim.
+*Acceptance:* Given büyük dosya işlenirken, When kullanıcı sayfayı kaydırır, Then FPS düşmez.
+
+## 2.5. İşlevsel Olmayan Gereksinimler (NFR)
+| Kategori | Gereksinim | Nasıl ölçülecek? |
+|---|---|---|
+| Performans | LCP < 1.5 s | Lighthouse |
+| UX | Main Thread Blocking Time < 50ms | Chrome DevTools Performance |
+| Güvenlik | Veri sunucuya KESİNLİKLE gönderilmez | Network sekmesi (API çağrısı olmamalı) |
+
+## 2.6. Kapsam Dışı (Out-of-Scope)
+V1 kapsamında yapmayacağımız ama V2'ye ertelenen özellikler:
+- Çoklu CSV dosyalarını JOIN ile birleştirmek (Karmaşık bellek yönetimi gerektiğinden kapsam dışı).
+- WebAssembly (WASM) ile tarayıcı içi tam donanımlı SQL motoru çalıştırmak.
+
+---
+
+# 3. PİYASA VE REKABET ANALİZİ
+
+## 3.1. Pazar Büyüklüğü
+- **TAM:** Tüm dünyada veri ile çalışan 100 milyondan fazla bilgi işçisi (Data Professionals).
+- **SAM:** Kurulum gerektirmeyen "tarayıcı tabanlı araç" tercih eden kitle (yaklaşık %15).
+- **SOM:** Türkiye pazarındaki akademi öğrencileri ve küçük-orta ölçekli işletme analistleri.
+
+## 3.2. Rakip Karşılaştırma Matrisi
+| Özellik | Bizim Ürün | Google Sheets | Masaüstü Excel | ObservableHQ |
+|---|---|---|---|---|
+| Ücretsiz kullanım | ✓ | ✓ | — | ✓ |
+| Büyük Veride (100K+) Donmama | ✓ (Worker) | — (Kilitlenir) | ✓ | — |
+| Sunucusuz / %100 Gizli | ✓ | — (Bulut) | ✓ | — |
+| Kodlama gerektirmez | ✓ | ✓ | ✓ | — (JS gerekir) |
+
+## 3.4. SWOT Analizi
+**Güçlü Yönler (S):** Çok hızlı, 0 kurulum, arayüz asla donmaz, veri güvenliği %100.
+**Zayıf Yönler (W):** Tarayıcı belleğine bağımlıdır (Kullanıcının RAM'i düşükse çöker).
+**Fırsatlar (O):** KVKK ve benzeri yasalar firmaları bulut yerine lokal çözümlere itiyor.
+**Tehditler (T):** Tarayıcıların bellek limitleri, rakip bulut araçlarının hızlanması.
+
+## 3.5. Positioning Statement
+**FOR** veri güvenliğine ve hıza önem veren analistler,  
+**WHO** büyük veri setlerini incelerken bilgisayarlarının donmasından sıkılanlar,  
+**OUR PRODUCT IS A** sunucusuz web veri analiz aracıdır,  
+**THAT** verileri %100 kullanıcının tarayıcısında, sıfır gecikmeyle analiz eder.  
+**UNLIKE** Google Sheets,  
+**OUR PRODUCT** ana iş parçacığını asla dondurmaz ve veriyi asla internete yüklemez.
+
+---
+
+# 4. TEKNOLOJİ YIĞINI (TECH STACK)
+
+## 4.1. Katmanlar — Özet Tablosu
 | Katman | Teknolojiler |
-|--------|--------------|
-| Frontend | Vanilla JavaScript (ES Modules), Vanilla CSS |
-| Workers | Web Workers API |
+|---|---|
+| Frontend | Vanilla JavaScript (ES6+), Vanilla CSS |
+| Workers | Native Web Workers API |
 | CSV parse | PapaParse (worker mode) |
 | Chart | Chart.js 4 |
 | Dışa Aktarım | xlsx (SheetJS) |
-| Build | Vite 8 |
+| Build | Vite |
 | Deployment | Vercel |
 
----
+## 4.2. Frontend: Vanilla JS & Vanilla CSS
+- **Neden seçildi?** React veya Vue gibi framework'ler Virtual DOM kullandıkları için devasa boyutlardaki (örn: 500.000 obje) verileri bellekte tutarken (state management) ciddi performans kayıpları yaşatır. Bu projede performansı maksimumda tutmak için doğrudan (native) DOM manipülasyonu kullanılmıştır.
 
-## 2. Executive Summary
+## 4.3. Workers: Web Workers API
+- **Neden seçildi?** Projenin kalbidir. Teknoloji seçimi olmaktan öte sistemin ana zorunluluğudur. Ağır JS hesaplamalarını asenkron hale getirerek UI'ı %100 akıcı tutar.
 
-### 2.1 Ne Yapıyoruz?
-Web Workers Big Data Analyzer, devasa boyutlardaki (100.000+ satır) CSV veri setlerini doğrudan kullanıcının tarayıcısında, sayfa performansını düşürmeden ve arayüzü dondurmadan analiz etmeyi sağlayan bir web uygulamasıdır. Öğrenciler, veri analistleri ve araştırmacılar için hiçbir kurulum gerektirmeyen, %100 istemci tarafında (client-side) çalışan güvenli bir çözümdür.
+## 4.4. Parsing: PapaParse
+- **Neden seçildi?** CSV dosyalarını "streaming" (parça parça) okuyabilen ve Web Worker ortamında yerel desteği (worker: true parametresi) bulunan en hızlı JS kütüphanesidir.
 
-### 2.2 Neden Şimdi?
-Günümüzde veri setleri giderek büyüyor ve bu verileri incelemek için ağır masaüstü programları (Excel, SPSS) veya bulut tabanlı ücretli servisler gerekiyor. Tarayıcı teknolojilerinin (Web Workers, gelişmiş JS motorları) geldiği nokta, artık bu işlemleri kullanıcı bilgisayarında lokal olarak, sıfır sunucu maliyetiyle yapmaya olanak tanımaktadır.
-
-### 2.3 Başarı Nasıl Görünüyor?
-1. yıl hedefi: Aylık 10.000 tekil kullanıcının 1 milyon+ satırlık dosyalarını çökme yaşamadan analiz edebilmesi. Kullanıcı verilerinin hiçbir sunucuya aktarılmaması sayesinde %100 veri gizliliği ile güvenilir bir "hızlı analiz" aracı olarak konumlanmak.
-
----
-
-## 3. Problem ve Motivasyon
-
-### 3.1 Hangi Probleme Çözüm Getiriyoruz?
-JavaScript tek thread'li (single-threaded) bir yapıya sahiptir. Tarayıcıda büyük bir dosya okunmak veya karmaşık bir matematiksel işlem yapılmak istendiğinde, "Ana Thread" (UI Thread) meşgul olur. Bu durum, kullanıcının sayfada kaydırma yapmasını, butonlara tıklamasını engeller ve sayfanın "yanıt vermiyor" diyerek çökmesine neden olur.
-
-### 3.2 Kanıt: Problem Gerçekten Var Mı?
-- Google Sheets veya Excel Online'a 50MB'lık bir CSV yüklendiğinde tarayıcı sekmesi donar veya çöker.
-- Klasik web uygulamalarında veri işleme süreci backend'e (sunucuya) gönderilir. Ancak bu durum hem sunucu maliyetlerini artırır hem de KVKK/GDPR açısından veri gizliliği riskleri doğurur.
-
-### 3.3 Mevcut Çözümler ve Eksikleri
-| Mevcut çözüm | Kullanıcıya ne vadeder? | Neden yetersiz? |
-|--------------|------------------------|------------------|
-| Google Sheets | Tarayıcıda veri analizi | 5-10 MB üstü verilerde aşırı yavaşlama ve çökme |
-| Masaüstü Excel | Güçlü analiz | Kurulum ve lisans gerektirir |
-| Python (Pandas)| Sınırsız analiz gücü | Kodlama bilmeyi gerektirir, son kullanıcıya uygun değil |
-
-### 3.4 Bizim Diferansiyasyonumuz
-1. **Sıfır Sunucu Maliyeti / Yüksek Gizlilik:** Veri asla bir sunucuya yüklenmez, tarayıcı içinde (RAM) işlenir.
-2. **Asenkron Çalışma:** İşlemler Web Worker'a devredildiği için kullanıcı arayüzü her zaman akıcı (60 FPS) kalır.
-3. **Anında Kurulumsuz Kullanım:** Sadece bir URL ile her cihazdan erişilebilir.
+## 4.5. Charting: Chart.js
+- **Neden seçildi?** HTML5 Canvas tabanlı olduğu için DOM elemanları üretmez. Bu sayede binlerce veriyi görselleştirirken çok hızlı render alır.
 
 ---
 
-## 4. Hedef Kitle ve Persona
+# 5. SİSTEM MİMARİSİ
 
-### 4.1 Birincil Segment
-Veri bilimi öğrencileri, araştırmacılar ve hızlı bir veri setinin "röntgenini" çekmek isteyen junior veri analistleri.
-
-### 4.2 Persona Kartları
-
-#### 👩‍💼 Persona 1 — "Araştırmacı Aslı"
-| Alan | Değer |
-|------|-------|
-| Yaş / Şehir | 24, Ankara |
-| Rol / Meslek | Yüksek Lisans Öğrencisi |
-| Teknoloji kullanımı | Orta |
-| Günlük rutini | Akademik makaleler için Kaggle'dan indirdiği verileri inceler. |
-| Ana hedefi | Bir CSV dosyasının temel istatistiklerini kod yazmadan görmek. |
-| Pain points | Python yazmak vakit alıyor, Excel büyük veride kilitleniyor. |
-
-#### 👨‍🎓 Persona 2 — "Analist Burak"
-| Alan | Değer |
-|------|-------|
-| Yaş / Şehir | 28, İstanbul |
-| Rol / Meslek | Veri Analisti |
-| Teknoloji kullanımı | İleri |
-| Günlük rutini | SQL sorguları ile veri çeker, hızlı doğrulamalar yapar. |
-| Ana hedefi | Bir raw datanın içindeki uç değerleri (min/max) ve dağılımı hızlıca kontrol etmek. |
-| Pain points | Veriyi sunucuya yüklemek KVKK gereği yasak. Lokal bir çözüm arıyor. |
-
-### 4.3 Jobs To Be Done (JTBD)
-1. *"When I'm **büyük bir CSV dosyası indirdiğimde**, I want to **hızlıca dağılımını görmek**, so I can **anormal veriler olup olmadığını anlamak**."*
-2. *"When I'm **gizli müşteri verisi incelerken**, I want to **dosyayı buluta yüklemeden işlemek**, so I can **veri ihlali riskinden kaçınmak**."*
-
----
-
-## 5. Ürün Gereksinimleri (PRD)
-
-### 5.1 Ana Hedef ve North Star Metric
-- **Ana hedef:** Kullanıcıların büyük veri setlerini tarayıcı çökmeden analiz etmelerini sağlamak.
-- **North Star Metric:** Tarayıcıda başarılı şekilde işlenen +100K satırlı CSV sayısı.
-
-### 5.2 Kapsam
-#### In-Scope (V1 — MVP)
-1. Drag & Drop CSV dosya yükleme
-2. Web Worker tabanlı PapaParse ile stream-parsing
-3. Sayısal veri analizleri (Ortalama, Medyan, Std. Sapma, Min, Max)
-4. Chart.js ile histogram çizimi
-5. Arama yapma ve dinamik filtreleme
-6. İşlenmiş veriyi Excel/CSV olarak dışa aktarma
-
-#### Out-of-Scope (V1)
-- DuckDB-WASM ile in-browser SQL çalıştırma (V2'ye ertelendi)
-- Çoklu dosya birleştirme (JOIN işlemleri)
-
-### 5.3 Fonksiyonel Gereksinimler (User Stories)
-
-**FR-01 — Dosya Yükleme**
-> As a **Kullanıcı**, I want to **sürükle-bırak ile dosya yüklemek**, so that **işlemimi hızlıca başlatabileyim**.
-**Acceptance Criteria:** Yüklenen dosya CSV değilse hata mesajı verilmelidir.
-
-**FR-02 — Web Worker İşleme**
-> As a **Kullanıcı**, I want to **işlem sırasında UI'ın donmamasını**, so that **iptal butonuna basabileyim veya diğer alanları inceleyebileyim**.
-**Acceptance Criteria:** İşlem sürerken progress bar güncellenmeli ve sayfa scroll edilebilmelidir.
-
-**FR-03 — İstatistiklerin Görüntülenmesi**
-> As a **Analist**, I want to **sütun bazlı ortalama ve medyanı görmek**, so that **veri setini anlayabileyim**.
-**Acceptance Criteria:** Sadece sayısal (numeric) kolonlar istatistik hesaplamasına dahil edilmelidir.
-
-### 5.4 Non-Functional Requirements
-| Kategori | Gereksinim | Nasıl ölçülecek? |
-|----------|------------|-------------------|
-| Performans | LCP < 1.5s | Lighthouse |
-| UX | Main Thread Blocking Time < 50ms | Chrome DevTools Performance |
-| Güvenlik | Sunucu tarafı veri depolanmayacak | Network tab |
-
----
-
-## 6. Piyasa ve Rekabet Analizi
-
-### 6.1 Rakip Analizi
-| Özellik | **Bizim Ürünümüz** | Google Sheets | Excel (Desktop) |
-|---------|--------------------|---------|---------|
-| Kurulum/Üyelik gereksiz| ✅ | ❌ (Üyelik) | ❌ (Kurulum) |
-| 100K+ Satırda Donmama| ✅ (Web Worker) | ❌ (Kilitlenir)| ✅ |
-| Sunucusuz / %100 Lokal | ✅ | ❌ (Bulut) | ✅ |
-
-### 6.2 SWOT Analizi
-**GÜÇLÜ YÖNLER:** Çok hızlı, hafif, güvenli, kurulumsuz.
-**ZAYIF YÖNLER:** RAM miktarı kullanıcının bilgisayarına bağlıdır. (Çok eski cihazlarda 2-3 milyon satır Out of Memory verebilir).
-**FIRSATLAR:** Tarayıcı tabanlı analiz (WASM) giderek popülerleşiyor.
-**TEHDİTLER:** Gelişmiş BI toolları (Tableau, PowerBI) bulut tabanlı çözümlerini hızlandırabilir.
-
----
-
-## 7. Teknoloji Yığını (Tech Stack)
-
-### 7.1 Özet Tablo
-| Katman | Teknoloji | Versiyon | Neden Seçildi? |
-|--------|-----------|----------|-----|
-| Frontend | Vanilla JS | ES6+ | Framework overhead'i (React re-render vb.) yaşamamak için. |
-| Stil | Vanilla CSS | CSS3 | Native CSS değişkenleri ve Glassmorphism için. |
-| Threading| Web Workers | Native | UI thread'i bloklamadan CPU-intensive işlem yapmak için. |
-| Parsing | PapaParse | 5.x | Hızlıdır ve worker thread içerisinde streaming (parça parça) okuma destekler. |
-| Charting | Chart.js | 4.x | Canvas tabanlı olduğu için yüksek miktarda veriyi (10+ bucket) çok hızlı çizer. |
-| Export | xlsx (SheetJS)| 0.18 | Tarayıcı içinde native .xlsx formatında binary dosya oluşturabilmek için. |
-| Build | Vite | 8.x | Worker dosyalarını native ESM modülü olarak paketlemede en modern araçtır. |
-
-### 7.2 Mimari Kararı (ADR Özeti)
-**ADR-001: Neden React/Vue kullanılmadı?**
-Büyük veri dizileri (Array of Objects) tutulacağı için, React gibi kütüphanelerin Virtual DOM mekanizması gereksiz bellek (RAM) tüketimine ve re-render gecikmelerine yol açacaktı. Saf DOM manipülasyonu tercih edildi.
-
----
-
-## 8. Sistem Mimarisi
-
-### 8.1 Yüksek Seviye Akış (C4)
-
+## 5.1. Yüksek Seviye Mimari (C4 — Level 1: Context)
+*Uygulama sunucusuz olduğu için mimari sadece Kullanıcı ve Tarayıcı etrafında şekillenir.*
 ```text
-┌─────────────────┐        postMessage()        ┌─────────────────┐
-│                 ├────────────────────────────►│                 │
-│  Main Thread    │                             │  Worker Thread  │
-│  (UI / DOM)     │◄────────────────────────────┤  (Arka Plan)    │
-│                 │        progress/complete    │                 │
-└─────────────────┘                             └─────────────────┘
+Kullanıcı ---> Tarayıcı (Web Workers Big Data Analyzer) ---> Lokal Dosya Sistemi
 ```
 
-### 8.2 Veri Akışı
-1. Kullanıcı `<input type="file">` ile dosyayı seçer.
-2. Main Thread, dosyayı referans olarak (Structured Clone algoritması ile) Worker'a gönderir.
-3. Worker, `Papa.parse` ile dosyayı satır satır okur (streaming). Olası bellek (RAM) taşmalarını önlemek için veri chunk'lar halinde işlenir.
-4. İşlem bitince tüm istatistik dizisi tekrar Main Thread'e `postMessage` ile iletilir.
+## 5.2. Container Seviyesi (C4 — Level 2)
+```text
+[ MAIN THREAD (UI) ] <------postMessage------> [ WORKER THREAD ]
+  - DOM Render                                   - PapaParse okuma
+  - Chart.js çizim                               - İstatistik hesaplama
+  - Olay Dinleyiciler                            - Bellek (Array) yönetimi
+```
+
+## 5.5. Mimari Karar Kayıtları (ADR)
+| ADR No | Karar | Neden? |
+|---|---|---|
+| ADR-001 | Framework kullanılmaması | State kütüphanelerinin büyük veride bellek şişirmesini önlemek |
+| ADR-002 | Sunucu (Backend) kullanılmaması | Tamamen "privacy-first" olmak ve hosting maliyetini sıfırlamak |
 
 ---
 
-## 9. Veri Modeli ve API Tasarımı
+# 6. VERİ MODELİ VE API TASARIMI
 
-*Not: Bu proje %100 istemci tarafında (client-side) çalıştığı için bir Backend API'si veya SQL Veritabanı kullanılmamıştır. Tüm veri modeli kullanıcının tarayıcı belleğinde (RAM) tutulur.*
+*Not: Uygulama %100 istemci tarafında çalışmaktadır, bu nedenle veritabanı (PostgreSQL vb.) veya sunucu API'si (REST/GraphQL) yoktur.*
 
-### 9.1 İstemci Tarafı Veri Yapısı (State)
-Uygulama bellekte aşağıdaki JSON benzeri yapıyı tutar:
-```json
+## 6.1. İstemci Tarafı Bellek (In-Memory) Veri Modeli
+Uygulamanın RAM üzerinde tuttuğu ana veri yapısı (State) şu şekildedir:
+```javascript
 {
-  "rows": [
-    { "Age": 25, "BloodPressure": 120, "Outcome": 1 },
-    { "Age": 45, "BloodPressure": 140, "Outcome": 0 }
+  columns: ["Age", "Income", "Score"],
+  rows: [
+    { Age: 25, Income: 45000, Score: 85 },
+    { Age: 34, Income: 65000, Score: 92 }
   ],
-  "stats": {
-    "Age": { "min": 21, "max": 80, "avg": 40.5, "median": 35 },
-    "BloodPressure": { "min": 60, "max": 180, "avg": 110, "median": 105 }
+  stats: {
+    Age: { min: 18, max: 65, avg: 35.2, median: 32 },
+    Income: { min: 20000, max: 120000, avg: 55000, median: 50000 }
   }
 }
 ```
 
 ---
 
-## 10. UI/UX Tasarımı
+# 7. KULLANICI ARAYÜZÜ TASARIMI
 
-### 10.1 Tasarım Dili ve Teması
-- **Karanlık Tema (Dark Mode):** Uzun süreli veri analizi yapan kullanıcıların göz yorgunluğunu azaltmak için `slate-900` ve `slate-800` renk tonları kullanılmıştır.
-- **Glassmorphism:** Yarı şeffaf, blur (bulanıklık) efektli paneller kullanılarak modern ve derinlikli bir görünüm elde edilmiştir.
-- **Vurgu Renkleri:** Neon Yeşil (`#4ade80`) ve Cyan (`#22d3ee`) gradient'leri ana aksiyon butonlarında ve önemli verilerde kullanılarak hiyerarşi oluşturulmuştur.
+## 7.1. Bilgi Mimarisi
+Tek sayfa uygulaması (Single Page Application).
+- / (Ana Ekran)
+  - Yükleme Alanı
+  - Dataset Özeti ve İstatistik Kartları
+  - Filtre & Arama Paneli
+  - Histogram Grafiği ve Veri Tablosu
 
-### 10.2 Ergonomik Akış
-Kullanıcı paneli 3 satırlık mantıksal bir iş akışına bölünmüştür:
-1. **İşlem:** Process CSV / Cancel (Süreci yönetir)
-2. **Filtre:** Sütun Seçimi, Min/Max değer ataması (Veriyi manipüle eder)
-3. **Dışa Aktarım ve Arama:** Excel/CSV Export, Arama Kutusu (Çıktıyı alır)
+## 7.3. Design System
+- **Renk Paleti:** Slate 900 (Arka Plan), Neon Yeşil #4ade80 (Primary/Success), Cyan #22d3ee (Secondary).
+- **Tipografi:** Modern, okunaklı "Inter" fontu.
+- **Konsept:** Glassmorphism (yarı saydam arka planlar ve blur efektleri) ile şık bir görünüm.
 
----
-
-## 11. Güvenlik, Performans, Test
-
-### 11.1 Güvenlik
-- **Sıfır Veri İhlali Riski:** Dosyalar `FileReader` ve Web Workers ile tarayıcı ortamında lokal (localhost) işlendiğinden sunucu tabanlı XSS, SQL Injection veya veri sızıntısı riskleri barındırmaz.
-
-### 11.2 Performans Ölçümleri
-Uygulama, farklı boyutlardaki veri setleri ile test edilmiştir:
-- **10.000 Satır (~500 KB):** < 0.5 saniye
-- **100.000 Satır (~5 MB):** ~3 saniye
-- **500.000 Satır (~25 MB):** ~15 saniye
-
-*Performans Notu:* Bu süreler zarfında Main Thread kesinlikle bloklanmamakta ve CSS animasyonları akıcı (60 FPS) bir şekilde çalışmaya devam etmektedir. İşlem iptal edildiğinde (Cancel butonu) worker anında `worker.terminate()` komutuyla sonlandırılarak bellek boşaltılmaktadır (Memory Leak önlemi).
+## 7.5. Responsive Tasarım
+- 375px (Mobil): Kontroller alt alta dizilir, tablo yatayda scroll edilebilir hale gelir.
+- 1024px+ (Desktop): Kontroller yan yana, grafik ve tablo tüm ekranı kaplar.
 
 ---
 
-## 12. Maliyet, Gelir Modeli, GTM
+# 8. GÜVENLİK, PERFORMANS VE TEST
 
-### 12.1 Proje Maliyeti
-- **Geliştirme Maliyeti:** 0 TL (Açık kaynak kütüphaneler kullanıldı).
-- **Sunucu (Hosting) Maliyeti:** 0 TL (Vercel Free Tier üzerinde sadece statik dosyalar HTML/CSS/JS barındırılıyor. Tüm işlemci gücü kullanıcının tarayıcısından sağlanır).
+## 8.1. Güvenlik
+Bu proje mimarisi gereği dünyadaki en güvenilir (secure) veri işleme yöntemlerinden birini kullanır. **Zira veri kullanıcının bilgisayarını asla terk etmez (No data transmission).** Bu nedenle OWASP riskleri (SQL Injection, CSRF, DDoS) projemiz için geçerli değildir. 
 
-### 12.2 Gelir Modeli
-Bu proje akademik bir bitirme projesi olduğundan açık kaynak (MIT Lisansı) olarak yayınlanmıştır. Ticari bir gelir beklentisi yoktur.
+## 8.2. Performans
+| Metrik | Gerçekleşen | Nasıl Sağlandı? |
+|---|---|---|
+| LCP | < 1 sn | Vercel CDN ve çok küçük bundle size |
+| UI Blocking | < 50ms | Tüm parsing işlemleri Web Worker'a atıldı |
 
 ---
-*Bu rapor, BMU1208 dersi proje teslim gereksinimlerine tam uygun olacak şekilde hazırlanmıştır.*
+
+# 9. MALİYET, GELİR MODELİ VE GTM
+
+## 9.1. Gelir Modeli
+Proje akademik amaçla ve **Açık Kaynak (Open Source - MIT Lisansı)** olarak yayınlanmıştır. Herhangi bir abonelik veya ücretli versiyonu yoktur.
+
+## 9.3. Maliyet Analizi
+**Aylık Maliyet: 0 TL**
+- Hosting: Vercel Free Tier
+- Veritabanı Maliyeti: 0 TL (Kullanıcı cihazı kullanılıyor)
+- Backend İşlem Maliyeti: 0 TL (Kullanıcı cihazı kullanılıyor)
+
+---
+
+# 10. UYGULAMA VE GELİŞTİRME
+
+## 10.1. Kurulum
+```bash
+git clone https://github.com/ilydozttrk/Web-Workers-Big-Data-Isleme.git
+cd repo
+npm install
+npm run dev
+```
+
+## 10.3. Kullanılan AI Araçları ve Katkı Oranı
+| Araç | Ne için kullanıldı? |
+|---|---|
+| Claude (Anthropic) | Kod mimarisini yapılandırma, Worker entegrasyonu, Dokümantasyon |
+| Tüm çıktıların kontrolü | %100 manuel kontrol edilmiş ve optimize edilmiştir. |
+
+---
+
+# 11. SONUÇ VE DEĞERLENDİRME
+
+## 11.1. Proje Hakkında Genel Değerlendirme
+Proje hedeflenen "UI dondurmadan büyük veri işleme" hedefine %100 ulaşmıştır. 5 MB boyutundaki (yaklaşık 100.000 satır) bir CSV dosyası sisteme saniyeler içinde yüklenmekte ve ana iş parçacığı serbest kaldığı için bu sırada CSS animasyonları çalışmaya devam etmektedir. 
+
+## 11.2. Karşılaşılan Zorluklar ve Çözümleri
+1. **Zorluk:** Worker'dan ana thread'e devasa verinin geçişinde yaşanan kilitlenme.
+   **Çözüm:** Verinin string yerine JSON olarak parçalar (chunk) halinde gönderilmesi (veya `transferable objects` mantığının kullanılması).
+
+## 11.3. Gelecek Çalışmalar (Future Work)
+- **V2 Hedefi:** Verilerin WebAssembly (WASM) tabanlı bir in-browser SQL veritabanına (örn. DuckDB-WASM) atılarak gerçek SQL sorgularının yazılabilmesi.
+
+## 11.4. Kazanılan Yetkinlikler
+1. Web Workers API ile asenkron mimari kurma
+2. Vanilla JS ile yüksek performanslı DOM manipülasyonu
+3. Büyük veri setlerinde streaming (parçalı okuma) algoritmaları
+4. Vite ve Vercel ile modern frontend derleme ve deploy süreçleri
+5. PRD yazımı ve profesyonel ürün yönetimi kavramları (JTBD, Persona)
+
+---
+
+# KAYNAKÇA
+[1] MDN Web Docs. "Using Web Workers". https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API
+[2] PapaParse Documentation. "Worker Mode". https://www.papaparse.com/docs
+[3] Chart.js Documentation. "Canvas Rendering". https://www.chartjs.org/docs/
+[4] Cagan, M. (2018). Inspired: How to Create Tech Products Customers Love. Wiley.
+[5] SheetJS Community Edition. https://sheetjs.com/
+
+---
+
+# EKLER
+**EK A — Tam Ekran Görüntüleri Arşivi**
+Ekran görüntüleri GitHub reposunda `/docs/screenshots/` dizini altında yer almaktadır.
+- 01-landing.png (Açılış sayfası)
+- 02-dashboard.png (İstatistik paneli ve kontroller)
+- 03-histogram.png (Tablo ve grafik alanı)

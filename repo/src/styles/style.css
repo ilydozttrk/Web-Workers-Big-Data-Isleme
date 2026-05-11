@@ -1,7 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ─── Reset & Base ─────────────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -10,8 +12,8 @@
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 20% 10%, rgba(74,222,128,0.07), transparent 30%),
-    radial-gradient(circle at 80% 80%, rgba(34,211,238,0.05), transparent 30%),
+    radial-gradient(circle at 20% 10%, rgba(74, 222, 128, 0.07), transparent 30%),
+    radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.05), transparent 30%),
     #020617;
   color: #f8fafc;
   font-family: 'Inter', Arial, sans-serif;
@@ -52,7 +54,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loader {
@@ -233,7 +237,9 @@ body {
 }
 
 /* ─── Dataset Summary ──────────────────────────────────────────────────────── */
-#dataset-summary:empty { display: none; }
+#dataset-summary:empty {
+  display: none;
+}
 
 .summary-title {
   font-size: 0.8rem;
@@ -391,7 +397,10 @@ body {
   margin-right: 8px;
   transition: color 0.25s;
 }
-.ctrl-searchbar:focus-within .search-icon { color: #22d3ee; }
+
+.ctrl-searchbar:focus-within .search-icon {
+  color: #22d3ee;
+}
 
 .ctrl-searchbar input[type="text"] {
   flex: 1;
@@ -406,7 +415,9 @@ body {
   min-width: 0;
 }
 
-.ctrl-searchbar input[type="text"]::placeholder { color: #475569; }
+.ctrl-searchbar input[type="text"]::placeholder {
+  color: #475569;
+}
 
 /* ── Inputs: select + number ─────────────────────────────────── */
 .controls-section select,
@@ -423,8 +434,13 @@ body {
   transition: 0.25s;
 }
 
-.controls-section select        { min-width: 170px; }
-.controls-section input[type="number"] { width: 88px; }
+.controls-section select {
+  min-width: 170px;
+}
+
+.controls-section input[type="number"] {
+  width: 88px;
+}
 
 .controls-section select:focus,
 .controls-section input[type="number"]:focus {
@@ -456,6 +472,7 @@ body {
   box-shadow: 0 0 20px rgba(74, 222, 128, 0.25);
   padding: 0 22px;
 }
+
 .btn-process:hover {
   filter: brightness(1.1);
   transform: translateY(-2px) scale(1.02);
@@ -468,6 +485,7 @@ body {
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.25) !important;
 }
+
 .btn-danger:hover {
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(239, 68, 68, 0.5) !important;
@@ -481,6 +499,7 @@ body {
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.2);
   margin-left: auto;
 }
+
 .btn-apply:hover {
   filter: brightness(1.12);
   transform: translateY(-2px) scale(1.02);
@@ -493,6 +512,7 @@ body {
   color: #4ade80;
   border: 1px solid rgba(74, 222, 128, 0.3) !important;
 }
+
 .btn-export:hover {
   background: rgba(74, 222, 128, 0.18);
   border-color: #4ade80 !important;
@@ -505,6 +525,7 @@ body {
   color: #22d3ee;
   border: 1px solid rgba(34, 211, 238, 0.3) !important;
 }
+
 .btn-excel:hover {
   background: rgba(34, 211, 238, 0.18);
   border-color: #22d3ee !important;
@@ -523,6 +544,7 @@ body {
   border: none;
   flex-shrink: 0;
 }
+
 .btn-search-inline:hover {
   filter: brightness(1.15);
   transform: scale(1.03);
@@ -540,6 +562,7 @@ body {
   flex-shrink: 0;
   justify-content: center;
 }
+
 .btn-clear:hover {
   background: rgba(239, 68, 68, 0.12);
   color: #f87171;
@@ -563,7 +586,9 @@ body {
   box-shadow: 0 0 30px rgba(74, 222, 128, 0.04);
 }
 
-canvas { max-height: 460px; }
+canvas {
+  max-height: 460px;
+}
 
 /* ─── Stats Cards ──────────────────────────────────────────────────────────── */
 .stats-section {
@@ -575,7 +600,7 @@ canvas { max-height: 460px; }
 .stat-card {
   padding: 22px 24px;
   border-radius: 22px;
-  background: linear-gradient(145deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9));
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
   border: 1px solid rgba(56, 189, 248, 0.3);
   backdrop-filter: blur(14px);
   transition: 0.3s;
@@ -587,12 +612,14 @@ canvas { max-height: 460px; }
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent, rgba(56,189,248,0.07), transparent);
+  background: linear-gradient(120deg, transparent, rgba(56, 189, 248, 0.07), transparent);
   transform: translateX(-100%);
   transition: 0.6s;
 }
 
-.stat-card:hover::before { transform: translateX(100%); }
+.stat-card:hover::before {
+  transform: translateX(100%);
+}
 
 .stat-card:hover {
   transform: translateY(-6px) scale(1.01);
@@ -612,10 +639,12 @@ canvas { max-height: 460px; }
   justify-content: space-between;
   align-items: center;
   padding: 5px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.stat-row:last-child { border-bottom: none; }
+.stat-row:last-child {
+  border-bottom: none;
+}
 
 .stat-label {
   color: #64748b;
@@ -630,7 +659,9 @@ canvas { max-height: 460px; }
 }
 
 /* ─── Results Table ────────────────────────────────────────────────────────── */
-.results-section:empty { display: none; }
+.results-section:empty {
+  display: none;
+}
 
 .results-header {
   display: flex;
@@ -696,7 +727,9 @@ canvas { max-height: 460px; }
   color: #f8fafc;
 }
 
-.results-table tbody tr:last-child td { border-bottom: none; }
+.results-table tbody tr:last-child td {
+  border-bottom: none;
+}
 
 .results-table mark {
   background: rgba(245, 158, 11, 0.35);
@@ -714,7 +747,20 @@ canvas { max-height: 460px; }
 }
 
 /* ─── Scrollbar ────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #020617; }
-::-webkit-scrollbar-thumb { background: rgba(74, 222, 128, 0.35); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(74, 222, 128, 0.6); }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(74, 222, 128, 0.35);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 222, 128, 0.6);
+}

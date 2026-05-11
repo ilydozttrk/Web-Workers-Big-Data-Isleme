@@ -8,6 +8,12 @@
 ![Lisans](https://img.shields.io/badge/License-MIT-green)
 ![Durum](https://img.shields.io/badge/Durum-Tamamlandı-brightgreen)
 
+## 🎓 Öğrenci Bilgileri
+- **Ad Soyad:** İlayda Öztürk
+- **Öğrenci No:** 23080410302
+- **Ders:** BMU1208 Web Tabanlı Programlama
+- **Proje Kodu:** P22
+
 ## 🎯 Özet
 
 JavaScript tek thread'li bir dildir; büyük dosya okuma veya karmaşık hesaplamalar doğrudan ana thread'de çalıştırıldığında sayfa tamamen donar ve kullanıcı hiçbir etkileşimde bulunamaz. Bu proje, **Web Workers API** kullanarak bu sorunu çözer.
@@ -181,6 +187,8 @@ npm run preview    # production build'i local'de test et
 ├── PROJE-RAPORU-SABLON.docx         # Word formatı rapor
 ├── LICENSE
 └── repo/                            # Kaynak kod
+    ├── docs/                        # Ekran görüntüleri ve diyagramlar
+    ├── openapi.yaml                 # Web Worker API dokümantasyonu (OpenAPI 3.1)
     ├── index.html                   # Tek sayfa uygulama giriş noktası
     ├── package.json                 # Bağımlılıklar ve scriptler
     ├── vite.config.js               # Vite yapılandırması

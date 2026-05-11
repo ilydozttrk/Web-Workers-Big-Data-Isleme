@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: Web Workers Big Data Analyzer - Message API
+  description: >
+    Proje tamamen istemci (client-side) tarafında çalıştığı için geleneksel bir HTTP REST API
+    kullanılmamaktadır. Bu belge, Main Thread (UI) ile Web Worker arasında geçen asenkron
+    (Event-Driven) postMessage haberleşme protokolünü açıklar.
+  version: 1.0.0
+paths:
+  /worker/parse/start:
+    post:
+      summary: CSV Dosyasını işlemeye başla
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  example: "PARSE_START"
+                file:
+                  type: string
+                  format: binary
+  /worker/parse/progress:
+    get:
+      summary: İlerleme durumunu al
+      responses:
+        '200':
+          description: Yüzdelik ilerleme durumu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "progress"
+                  progress:
+                    type: integer
+                    example: 45
+  /worker/parse/success:
+    get:
+      summary: İşlem bitimi verileri
+      responses:
+        '200':
+          description: Parse edilmiş satırlar ve istatistikler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "success"
+                  data:
+                    type: array
+                    items:
+                      type: object
+                  stats:
+                    type: object
+  /worker/parse/error:
+    get:
+      summary: Hata durumu
+      responses:
+        '400':
+          description: Dosya okuma veya format hatası
+  /worker/task/cancel:
+    delete:
+      summary: İşlemi iptal et ve Worker'ı sonlandır
+      responses:
+        '200':
+          description: Worker terminated

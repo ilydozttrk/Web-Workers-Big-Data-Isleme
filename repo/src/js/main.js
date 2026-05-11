@@ -133,38 +133,38 @@ document.querySelector('#app').innerHTML = `
 `
 
 // ─── DOM References ────────────────────────────────────────────────────────────
-const fileInput           = document.querySelector('#file-input')
-const dropZone            = document.querySelector('#drop-zone')
-const progressFill        = document.querySelector('#progress-fill')
-const progressText        = document.querySelector('#progress-text')
-const statusMessage       = document.querySelector('#status-message')
-const statsSection        = document.querySelector('#stats-section')
-const processBtn          = document.querySelector('#process-btn')
-const columnSelect        = document.querySelector('#column-select')
-const chartCanvas         = document.querySelector('#histogram-chart')
-const minFilterInput      = document.querySelector('#min-filter')
-const maxFilterInput      = document.querySelector('#max-filter')
-const applyFilterBtn      = document.querySelector('#apply-filter-btn')
+const fileInput = document.querySelector('#file-input')
+const dropZone = document.querySelector('#drop-zone')
+const progressFill = document.querySelector('#progress-fill')
+const progressText = document.querySelector('#progress-text')
+const statusMessage = document.querySelector('#status-message')
+const statsSection = document.querySelector('#stats-section')
+const processBtn = document.querySelector('#process-btn')
+const columnSelect = document.querySelector('#column-select')
+const chartCanvas = document.querySelector('#histogram-chart')
+const minFilterInput = document.querySelector('#min-filter')
+const maxFilterInput = document.querySelector('#max-filter')
+const applyFilterBtn = document.querySelector('#apply-filter-btn')
 const cancelProcessingBtn = document.querySelector('#cancel-processing-btn')
-const exportBtn           = document.querySelector('#export-btn')
-const exportExcelBtn      = document.querySelector('#export-excel-btn')
-const searchInput         = document.querySelector('#search-input')
-const searchBtn           = document.querySelector('#search-btn')
-const clearSearchBtn      = document.querySelector('#clear-search-btn')
-const rangeInfo           = document.querySelector('#range-info')
-const loadingOverlay      = document.querySelector('#loading-overlay')
-const fileInfoSection     = document.querySelector('#file-info-section')
-const datasetSummary      = document.querySelector('#dataset-summary')
-const resultsSection      = document.querySelector('#results-section')
+const exportBtn = document.querySelector('#export-btn')
+const exportExcelBtn = document.querySelector('#export-excel-btn')
+const searchInput = document.querySelector('#search-input')
+const searchBtn = document.querySelector('#search-btn')
+const clearSearchBtn = document.querySelector('#clear-search-btn')
+const rangeInfo = document.querySelector('#range-info')
+const loadingOverlay = document.querySelector('#loading-overlay')
+const fileInfoSection = document.querySelector('#file-info-section')
+const datasetSummary = document.querySelector('#dataset-summary')
+const resultsSection = document.querySelector('#results-section')
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 let chartInstance = null
-let parsedRows    = []
+let parsedRows = []
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function showStatus(message, type) {
   statusMessage.textContent = message
-  statusMessage.className   = type
+  statusMessage.className = type
 }
 
 function showLoadingOverlay() {
@@ -177,9 +177,9 @@ function hideLoadingOverlay() {
 
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 Bytes'
-  const k     = 1024
+  const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i     = Math.floor(Math.log(bytes) / Math.log(k))
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
@@ -210,9 +210,9 @@ function displayFileInfo(file) {
 
 // ─── Dataset Summary ───────────────────────────────────────────────────────────
 function displayDatasetSummary(data) {
-  const allColumns  = data.rows.length > 0 ? Object.keys(data.rows[0]) : []
+  const allColumns = data.rows.length > 0 ? Object.keys(data.rows[0]) : []
   const numericCols = Object.keys(data.stats)
-  const textCols    = allColumns.filter(c => !numericCols.includes(c))
+  const textCols = allColumns.filter(c => !numericCols.includes(c))
 
   datasetSummary.innerHTML = `
     <div class="summary-title">Dataset Summary</div>
@@ -247,8 +247,8 @@ function processSelectedFile(file) {
   displayFileInfo(file)
   showLoadingOverlay()
 
-  progressFill.style.width  = '0%'
-  progressText.textContent  = 'Processing CSV file...'
+  progressFill.style.width = '0%'
+  progressText.textContent = 'Processing CSV file...'
 
   showStatus('CSV processing started.', 'success-status')
 
@@ -346,7 +346,7 @@ function renderChart() {
   if (chartInstance) chartInstance.destroy()
 
   const bucketSize = (actualMax - actualMin || 1) / 10
-  const buckets    = Array(10).fill(0)
+  const buckets = Array(10).fill(0)
 
   values.forEach(value => {
     const idx = Math.min(Math.floor((value - actualMin) / bucketSize), 9)
@@ -355,7 +355,7 @@ function renderChart() {
 
   const labels = buckets.map((_, i) => {
     const start = (actualMin + i * bucketSize).toFixed(2)
-    const end   = (actualMin + (i + 1) * bucketSize).toFixed(2)
+    const end = (actualMin + (i + 1) * bucketSize).toFixed(2)
     return `${start} – ${end}`
   })
 
@@ -408,16 +408,16 @@ cancelProcessingBtn.addEventListener('click', () => {
   hideLoadingOverlay()
   progressFill.style.width = '0%'
   progressText.textContent = 'Processing cancelled.'
-  statsSection.innerHTML   = ''
-  rangeInfo.textContent    = ''
-  parsedRows               = []
+  statsSection.innerHTML = ''
+  rangeInfo.textContent = ''
+  parsedRows = []
 
   columnSelect.innerHTML = '<option value="">Select Numeric Column</option>'
-  minFilterInput.value   = ''
-  maxFilterInput.value   = ''
-  datasetSummary.innerHTML  = ''
+  minFilterInput.value = ''
+  maxFilterInput.value = ''
+  datasetSummary.innerHTML = ''
   fileInfoSection.innerHTML = ''
-  resultsSection.innerHTML  = ''
+  resultsSection.innerHTML = ''
 
   if (chartInstance) {
     chartInstance.destroy()
@@ -472,16 +472,16 @@ exportBtn.addEventListener('click', () => {
     return
   }
 
-  const headers    = Object.keys(filteredRows[0])
+  const headers = Object.keys(filteredRows[0])
   const csvContent = [
     headers.join(','),
     ...filteredRows.map(row => headers.map(h => `"${row[h] ?? ''}"`).join(',')),
   ].join('\n')   // BUG FIX: '\n' değil, gerçek newline
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url  = URL.createObjectURL(blob)
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
-  link.href     = url
+  link.href = url
   link.download = 'filtered_dataset.csv'
   link.click()
   URL.revokeObjectURL(url)
@@ -497,8 +497,8 @@ exportExcelBtn.addEventListener('click', () => {
   }
 
   const selectedColumn = columnSelect.value
-  const minValue       = parseFloat(minFilterInput.value)
-  const maxValue       = parseFloat(maxFilterInput.value)
+  const minValue = parseFloat(minFilterInput.value)
+  const maxValue = parseFloat(maxFilterInput.value)
 
   let rowsToExport = parsedRows
 
@@ -518,7 +518,7 @@ exportExcelBtn.addEventListener('click', () => {
   }
 
   const worksheet = XLSX.utils.json_to_sheet(rowsToExport)
-  const workbook  = XLSX.utils.book_new()
+  const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Dataset')
   XLSX.writeFile(workbook, 'filtered_dataset.xlsx')
 
@@ -564,14 +564,14 @@ function renderResultsTable(rows, query = '') {
   }
 
   const displayRows = rows.slice(0, 500)
-  const headers     = Object.keys(displayRows[0])
+  const headers = Object.keys(displayRows[0])
 
   const escapeHtml = str => String(str ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
   const highlightMatch = (text, query) => {
     if (!query) return escapeHtml(text)
     const escaped = escapeHtml(text)
-    const re      = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
     return escaped.replace(re, '<mark>$1</mark>')
   }
 
@@ -605,7 +605,7 @@ searchInput.addEventListener('keydown', e => {
 })
 
 clearSearchBtn.addEventListener('click', () => {
-  searchInput.value        = ''
+  searchInput.value = ''
   resultsSection.innerHTML = ''
   showStatus('Search cleared.', 'success-status')
 })
